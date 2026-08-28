@@ -9,9 +9,10 @@ const app = new Elysia()
     db
       .select({
         uuid: users.uuid,
-        name: users.name,
-        email: users.email,
+        nip: users.nip,
+        nama: users.nama,
         createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
       })
       .from(users),
   );

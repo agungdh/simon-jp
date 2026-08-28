@@ -6,9 +6,11 @@ export const users = pgTable(
   {
     id: id(),
     uuid: uuid(),
-    name: text("name").notNull(),
-    email: text("email").notNull().unique(),
+    nip: text("nip").notNull().unique(),
+    password: text("password").notNull(),
+    nama: text("nama").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
     uuidIdx: index("users_uuid_idx").using("hash", table.uuid),
