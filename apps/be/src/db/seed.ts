@@ -8,8 +8,8 @@ async function seed() {
     return;
   }
 
-  const nip = process.env.SEED_NIP ?? "123456789012345678";
-  const rawPassword = process.env.SEED_PASSWORD ?? "admin123";
+  const nip = process.env.SEED_NIP ?? "admin";
+  const rawPassword = process.env.SEED_PASSWORD ?? "admin";
   const hashed = await Bun.password.hash(rawPassword);
 
   await db.insert(users).values({
