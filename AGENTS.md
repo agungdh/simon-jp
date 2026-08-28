@@ -99,3 +99,11 @@ db.select({ uuid: users.uuid, name: users.name }).from(users);
   `VALKEY_PASSWORD` (defaults `localhost` / `6379` / `admin`).
 - Seeding: `make db-seed` (or `bun run db:seed`) inserts a default user using
   `Bun.password.hash`. Credentials from `SEED_NIP` / `SEED_PASSWORD`.
+
+## API docs (Swagger)
+
+- `@elysiajs/swagger` is mounted in `src/index.ts` at `/api/swagger`
+  (UI) and `/api/swagger/json` (OpenAPI spec). Under nginx, `/api` is proxied
+  to the BE, so the docs are reachable at the same host as the API.
+- Route validation uses Elysia's `t.*` schemas so endpoints are documented
+  automatically — keep request/response schemas explicit.
