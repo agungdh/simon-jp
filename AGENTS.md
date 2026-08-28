@@ -81,7 +81,9 @@ db.select({ uuid: users.uuid, name: users.name }).from(users);
 ## Auth conventions
 
 - **Opaque token** (random 32-byte hex), NOT JWT. Token is stored in Valkey
-  under key `session:<token>` with a 7-day TTL (`src/lib/token.ts`).
+  under key `session:<token>` with a 7-day TTL (`src/lib/token.ts`). The TTL is
+  **sliding** — every authenticated request calls `getSession`, which runs
+  `EXPIRE` to reset the TTL back to 7 days. 7 days of inactivity = expiry.
 - The token is delivered two ways (nginx proxies `/api` to BE, rest to FE):
   - **Bearer** header `Authorization: Bearer <token>` — for mobile + desktop.
   - **HttpOnly cookie** `session=<token>` (`SameSite=Lax`, `Secure` in prod) —

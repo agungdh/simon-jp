@@ -22,6 +22,8 @@ export async function getSession(
 ): Promise<SessionData | null> {
   const raw = await valkey.get(PREFIX + token);
   if (!raw) return null;
+  // Sliding expiry: every access extends the TTL back to full.
+  await valkey.expire(PREFIX + token, TTL_SECONDS);
   try {
     return JSON.parse(raw) as SessionData;
   } catch {
