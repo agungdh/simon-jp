@@ -1,8 +1,11 @@
 import { Elysia } from "elysia";
+import { db } from "./db";
+import { users } from "./db/schema";
 
 const app = new Elysia()
   .get("/", () => ({ message: "Hello from Elysia BE" }))
-  .get("/health", () => ({ status: "ok" }));
+  .get("/health", () => ({ status: "ok" }))
+  .get("/users", async () => db.select().from(users));
 
 const port = Number(process.env.PORT) || 4000;
 
