@@ -3,6 +3,7 @@ const backendUrl = process.env.BE_URL || 'http://localhost:4000';
 
 const nextConfig = {
   reactStrictMode: true,
+  output: 'export',
   async rewrites() {
     return [
       {
