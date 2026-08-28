@@ -3,7 +3,18 @@ SHELL := /bin/bash
 COMPOSE := docker compose
 BE := apps/be
 
-.PHONY: db-up db-down db-reset db-migrate db-generate db-studio
+.DEFAULT_GOAL := help
+
+.PHONY: help db-up db-down db-reset db-migrate db-generate db-studio
+
+help:
+	@echo "Available targets:"
+	@echo "  make db-reset     Wipe postgres volume, start DB, migrate from 0000"
+	@echo "  make db-up        Start postgres container"
+	@echo "  make db-down      Stop postgres container"
+	@echo "  make db-migrate   Apply drizzle migrations"
+	@echo "  make db-generate  Generate drizzle migration from schema"
+	@echo "  make db-studio    Open drizzle studio"
 
 db-up:
 	$(COMPOSE) up -d postgres
