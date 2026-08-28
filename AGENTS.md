@@ -12,9 +12,10 @@ Every table MUST follow the dual-identifier pattern defined in
 
 - `id` — `serial` primary key. **Internal only.** Used for joins, FKs, and
   storage. NEVER exposed to the client (API responses, DTOs, types).
-- `uuid` — `uuid` column, `default gen_random_uuid()`, `notNull`, `unique`,
-  with a **hash index** (`index(...).using("hash", table.uuid)`). This is the
-  public identifier used in DTOs and APIs.
+- `uuid` — `uuid` column, `default gen_random_uuid()`, `notNull`, with a
+  **hash index** (`index(...).using("hash", table.uuid)`). NOT unique. This is
+  the public identifier used in DTOs and APIs. Uniqueness is enforced by the
+  app layer / default, not a DB unique constraint.
 
 Rule of thumb: the client only ever sees `uuid`. `id` stays server-side.
 
@@ -37,22 +38,26 @@ export const users = pgTable(
 );
 ```
 
-### Foreign keys reference `uuid`, not `id`
+### Foreign keys reference `id`, not `uuid`
 
-- A FK column is named `<singular_entity>_uuid` (e.g. `user_uuid`,
-  `post_uuid`). It references the parent's `uuid` column.
-- The referenced `uuid` is already `unique`, so the FK is valid.
-- Define FKs via the `fkUuid` helper + `.references(() => parent.uuid)`.
+- `uuid` is intentionally NOT unique (only hash-indexed), so a foreign key
+  **cannot** reference it — Postgres requires the referenced column to be
+  `unique` or a `PK`.
+- A FK column is therefore named `<singular_entity>_id` (e.g. `user_id`,
+  `post_id`) and references the parent's `id` (the serial PK). This is fine:
+  FKs are internal and never leave the server, so the "never expose `id`" rule
+  still holds.
+- Define FKs via the `fkId` helper + `.references(() => parent.id)`.
 
 ```ts
 import { pgTable, text } from "drizzle-orm/pg-core";
-import { id, uuid, fkUuid } from "./columns";
+import { id, uuid, fkId } from "./columns";
 import { users } from "./users";
 
 export const posts = pgTable("posts", {
   id: id(),
   uuid: uuid(),
-  userUuid: fkUuid("user_uuid").references(() => users.uuid),
+  userId: fkId("user_id").references(() => users.id),
   title: text("title").notNull(),
 });
 ```

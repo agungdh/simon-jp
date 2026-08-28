@@ -15,6 +15,13 @@
       "when": 1787941901618,
       "tag": "0001_workable_spiral",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787942270039,
+      "tag": "0002_dry_leech",
+      "breakpoints": true
     }
   ]
 }
