@@ -77,3 +77,23 @@ db.select({ uuid: users.uuid, name: users.name }).from(users);
 - After editing the schema run `bun run db:generate` then `bun run db:migrate`
   (from `apps/be`). Never hand-edit generated SQL unless adding a hash index
   that drizzle-kit cannot express — prefer `.using("hash", ...)` in the schema.
+
+## Auth conventions
+
+- **Opaque token** (random 32-byte hex), NOT JWT. Token is stored in Valkey
+  under key `session:<token>` with a 7-day TTL (`src/lib/token.ts`).
+- The token is delivered two ways (nginx proxies `/api` to BE, rest to FE):
+  - **Bearer** header `Authorization: Bearer <token>` — for mobile + desktop.
+  - **HttpOnly cookie** `session=<token>` (`SameSite=Lax`, `Secure` in prod) —
+    for web browsers.
+- `extractSessionToken(req)` reads Bearer first, then the cookie. Each protected
+  route plugin resolves the Valkey session into `ctx.auth`
+  (`{ uuid, nip, nama }`) via its own `.resolve(...)`, then an `.onBeforeHandle`
+  returns `401` when `ctx.auth` is null. See `src/routes/users.ts` for the
+  pattern, or reuse `src/plugins/auth.ts` (`auth` plugin, optional auth). `id` is
+  never used as the token subject — only `uuid`.
+- Never expose `password` in any response.
+- Valkey connection (`src/lib/valkey.ts`) reads `VALKEY_HOST` / `VALKEY_PORT` /
+  `VALKEY_PASSWORD` (defaults `localhost` / `6379` / `admin`).
+- Seeding: `make db-seed` (or `bun run db:seed`) inserts a default user using
+  `Bun.password.hash`. Credentials from `SEED_NIP` / `SEED_PASSWORD`.

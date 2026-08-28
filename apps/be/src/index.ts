@@ -1,21 +1,12 @@
 import { Elysia } from "elysia";
-import { db } from "./db";
-import { users } from "./db/schema";
+import { authRoutes } from "./routes/auth";
+import { userRoutes } from "./routes/users";
 
 const app = new Elysia()
   .get("/", () => ({ message: "Hello from Elysia BE" }))
   .get("/health", () => ({ status: "ok" }))
-  .get("/users", async () =>
-    db
-      .select({
-        uuid: users.uuid,
-        nip: users.nip,
-        nama: users.nama,
-        createdAt: users.createdAt,
-        updatedAt: users.updatedAt,
-      })
-      .from(users),
-  );
+  .use(authRoutes)
+  .use(userRoutes);
 
 const port = Number(process.env.PORT) || 4000;
 

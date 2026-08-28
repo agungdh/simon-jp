@@ -5,7 +5,7 @@ BE := apps/be
 
 .DEFAULT_GOAL := help
 
-.PHONY: help db-up db-down db-reset db-migrate db-generate db-studio
+.PHONY: help db-up db-down db-reset db-migrate db-generate db-studio db-seed
 
 help:
 	@echo "Available targets:"
@@ -15,6 +15,7 @@ help:
 	@echo "  make db-migrate   Apply drizzle migrations"
 	@echo "  make db-generate  Generate drizzle migration from schema"
 	@echo "  make db-studio    Open drizzle studio"
+	@echo "  make db-seed      Seed default user into postgres"
 
 db-up:
 	$(COMPOSE) up -d postgres
@@ -40,3 +41,6 @@ db-generate:
 
 db-studio:
 	cd $(BE) && bun run db:studio
+
+db-seed:
+	cd $(BE) && bun run db:seed
