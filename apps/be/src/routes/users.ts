@@ -4,7 +4,7 @@ import { db } from "../db";
 import { users } from "../db/schema";
 import { eq } from "drizzle-orm";
 
-export const userRoutes = new Elysia({ prefix: "/api" })
+export const userRoutes = new Elysia()
   .resolve(async ({ request }) => {
     const token = extractSessionToken(request);
     const session = token ? await getSession(token) : null;

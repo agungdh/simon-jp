@@ -8,7 +8,7 @@ import { serializeCookie } from "../lib/cookie";
 const SESSION_TTL = 60 * 60 * 24 * 7;
 const secure = process.env.SESSION_SECURE === "true";
 
-export const authRoutes = new Elysia({ prefix: "/api" })
+export const authRoutes = new Elysia()
   .post(
     "/auth/login",
     async ({ body, set, request }) => {

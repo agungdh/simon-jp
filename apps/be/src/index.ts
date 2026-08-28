@@ -6,7 +6,7 @@ import { userRoutes } from "./routes/users";
 const app = new Elysia()
   .use(
     swagger({
-      path: "/api/swagger",
+      path: "/docs",
       documentation: {
         info: {
           title: "Simon JP API",

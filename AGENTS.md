@@ -84,10 +84,12 @@ db.select({ uuid: users.uuid, name: users.name }).from(users);
   under key `session:<token>` with a 7-day TTL (`src/lib/token.ts`). The TTL is
   **sliding** — every authenticated request calls `getSession`, which runs
   `EXPIRE` to reset the TTL back to 7 days. 7 days of inactivity = expiry.
-- The token is delivered two ways (nginx proxies `/api` to BE, rest to FE):
+- The token is delivered two ways (nginx strips `/api` and proxies the rest to
+  BE; FE serves everything else):
   - **Bearer** header `Authorization: Bearer <token>` — for mobile + desktop.
   - **HttpOnly cookie** `session=<token>` (`SameSite=Lax`, `Secure` in prod) —
-    for web browsers.
+    for web browsers. Internally routes have no `/api` prefix (e.g.
+    `/auth/login`); externally they are reached at `/api/auth/login`.
 - `extractSessionToken(req)` reads Bearer first, then the cookie. Each protected
   route plugin resolves the Valkey session into `ctx.auth`
   (`{ uuid, nip, nama }`) via its own `.resolve(...)`, then an `.onBeforeHandle`
@@ -102,8 +104,9 @@ db.select({ uuid: users.uuid, name: users.name }).from(users);
 
 ## API docs (Swagger)
 
-- `@elysiajs/swagger` is mounted in `src/index.ts` at `/api/swagger`
-  (UI) and `/api/swagger/json` (OpenAPI spec). Under nginx, `/api` is proxied
-  to the BE, so the docs are reachable at the same host as the API.
+- `@elysiajs/swagger` is mounted in `src/index.ts` at `/docs`
+  (UI) and `/docs/json` (OpenAPI spec). Routes have **no** `/api` prefix —
+  nginx strips `/api` and proxies the rest to the BE, so the docs are
+  reachable at `/api/docs` from the outside.
 - Route validation uses Elysia's `t.*` schemas so endpoints are documented
   automatically — keep request/response schemas explicit.
