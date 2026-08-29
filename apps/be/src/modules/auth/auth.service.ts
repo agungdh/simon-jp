@@ -11,11 +11,7 @@ export const authService = {
     }
 
     const token = await createSession({
-      id: user.id,
       uuid: user.uuid,
-      nip: user.nip,
-      nama: user.nama,
-      tipe: user.tipe,
     });
 
     return {
