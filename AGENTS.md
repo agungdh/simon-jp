@@ -180,11 +180,13 @@ db.select({ uuid: users.uuid, name: users.name }).from(users);
 - Business logic signals HTTP failures by throwing `HttpError` (from
   `src/plugins/error.ts`): `throw new HttpError(401, "Invalid nip or password")`.
   Services must NOT set `set.status` themselves — let the global handler do it.
-- `src/plugins/error.ts` exports an `errorHandler` Elysia plugin (mounted once in
-  `src/app.ts` via `.use(errorHandler)`) that maps any thrown `HttpError` to its
-  `status` + `{ message }` body, and everything else to `500`
+- `src/plugins/error.ts` exports an `errorHandler` callback (mounted once in
+  `src/app.ts` via `.onError(errorHandler)`) that maps any thrown `HttpError` to
+  its `status` + `{ message }` body, and everything else to `500`
   `{ message: "Internal Server Error" }` (this is the Elysia equivalent of a
-  Spring `@ControllerAdvice` / `@ExceptionHandler`).
+  Spring `@ControllerAdvice` / `@ExceptionHandler`). Do NOT wrap it in a
+  `.use()` plugin — Elysia fails to JSON-serialize `onError` return values that
+  come from a nested plugin, sending plain text instead.
 
 ## API docs (Swagger)
 

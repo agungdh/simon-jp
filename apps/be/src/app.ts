@@ -16,7 +16,7 @@ export const app = new Elysia()
       },
     }),
   )
-  .use(errorHandler)
+  .onError(errorHandler)
   .get("/", () => ({ message: "Hello from Elysia BE" }))
   .get("/health", () => ({ status: "ok" }))
   .use(authRoutes)
