@@ -1,7 +1,8 @@
 import { Elysia } from "elysia";
 import { swagger } from "@elysiajs/swagger";
-import { authRoutes } from "./routes/auth";
-import { userRoutes } from "./routes/users";
+import { errorHandler } from "./plugins/error";
+import { authRoutes } from "./modules/auth";
+import { userRoutes } from "./modules/user";
 
 export const app = new Elysia()
   .use(
@@ -15,6 +16,7 @@ export const app = new Elysia()
       },
     }),
   )
+  .use(errorHandler)
   .get("/", () => ({ message: "Hello from Elysia BE" }))
   .get("/health", () => ({ status: "ok" }))
   .use(authRoutes)
