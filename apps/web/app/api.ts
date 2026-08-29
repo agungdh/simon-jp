@@ -1,26 +1,59 @@
 'use client';
 
-import { treaty, type Treaty } from '@elysiajs/eden';
-import type { App } from 'be';
+import { treaty } from '@elysiajs/eden';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '/api';
 const isAbsolute = /:\/\//.test(API_URL);
-
-// `be` and `@elysiajs/eden` resolve elysia to two different build hashes of the
-// same version, so `App` can't satisfy eden's `Elysia` constraint directly.
-// Build the client type from `App['~Routes']` instead, which avoids that constraint.
-type Client = Treaty.Sign<App['~Routes'], {}>;
-
-export const api = treaty(API_URL, {
-  fetch: { credentials: 'include' },
-  keepDomain: !isAbsolute,
-}) as unknown as Client;
 
 export type SessionUser = {
   uuid: string;
   nip: string;
   nama: string;
 };
+
+type ApiErrorBody = { message?: string; errors?: Record<string, string> };
+
+type ApiResponse<T> = {
+  data: T;
+  error: null;
+  status: number;
+  response: Response;
+};
+
+type ApiErrorResponse = {
+  data: null;
+  error: { status: number; value: ApiErrorBody | undefined };
+  status: number;
+  response: Response;
+};
+
+// `be` and `@elysiajs/eden` resolve elysia to different republished builds of
+// 1.4.30, so the `App` type never satisfies eden's `Elysia` constraint and
+// `Treaty<App>`/`Treaty.Sign<App['~Routes']>` cannot infer the client. Type the
+// endpoints we actually use by hand instead; eden still sends the real requests.
+type Client = {
+  me: {
+    get: (options?: Record<string, unknown>) => Promise<ApiResponse<SessionUser[]> | ApiErrorResponse>;
+  };
+  auth: {
+    login: {
+      post: (
+        body: { nip: string; password: string },
+        options?: Record<string, unknown>,
+      ) => Promise<ApiResponse<{ token: string; user: SessionUser }> | ApiErrorResponse>;
+    };
+    logout: {
+      post: (
+        options?: Record<string, unknown>,
+      ) => Promise<ApiResponse<{ message: string }> | ApiErrorResponse>;
+    };
+  };
+};
+
+export const api = treaty(API_URL, {
+  fetch: { credentials: 'include' },
+  keepDomain: !isAbsolute,
+}) as unknown as Client;
 
 export class ApiError extends Error {
   status: number;
@@ -32,11 +65,9 @@ export class ApiError extends Error {
   }
 }
 
-function unwrap<T>(res: any): T {
+function unwrap<T>(res: ApiResponse<T> | ApiErrorResponse): T {
   if (res.error) {
-    const value = res.error.value as
-      | { message?: string; errors?: Record<string, string> }
-      | undefined;
+    const value = res.error.value;
     throw new ApiError(
       res.error.status,
       value?.message ?? 'Request failed',
