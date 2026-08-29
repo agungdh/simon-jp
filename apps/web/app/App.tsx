@@ -10,7 +10,7 @@ import CardContent from '@mui/material/CardContent';
 import Stack from '@mui/material/Stack';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
-import { fetchMe, login, logout, type SessionUser } from './api';
+import { fetchMe, login, logout, ApiError, type SessionUser } from './api';
 
 export default function App() {
   const [user, setUser] = useState<SessionUser | null>(null);
@@ -18,6 +18,7 @@ export default function App() {
   const [nip, setNip] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -30,13 +31,18 @@ export default function App() {
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setFieldErrors({});
     setSubmitting(true);
     try {
       const u = await login(nip, password);
       setUser(u);
       setPassword('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      if (err instanceof ApiError && err.errors) {
+        setFieldErrors(err.errors);
+      } else {
+        setError(err instanceof Error ? err.message : 'Login failed');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -99,7 +105,16 @@ export default function App() {
                 <TextField
                   label="NIP"
                   value={nip}
-                  onChange={(e) => setNip(e.target.value)}
+                  onChange={(e) => {
+                    setNip(e.target.value);
+                    setFieldErrors((f) => {
+                      if (!f.nip) return f;
+                      const { nip: _nip, ...rest } = f;
+                      return rest;
+                    });
+                  }}
+                  error={Boolean(fieldErrors.nip)}
+                  helperText={fieldErrors.nip}
                   fullWidth
                   required
                   autoFocus
@@ -108,7 +123,16 @@ export default function App() {
                   label="Password"
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setFieldErrors((f) => {
+                      if (!f.password) return f;
+                      const { password: _password, ...rest } = f;
+                      return rest;
+                    });
+                  }}
+                  error={Boolean(fieldErrors.password)}
+                  helperText={fieldErrors.password}
                   fullWidth
                   required
                 />

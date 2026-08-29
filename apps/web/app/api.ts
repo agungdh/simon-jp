@@ -22,18 +22,26 @@ export type SessionUser = {
   nama: string;
 };
 
-class ApiError extends Error {
+export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  errors?: Record<string, string>;
+  constructor(status: number, message: string, errors?: Record<string, string>) {
     super(message);
     this.status = status;
+    this.errors = errors;
   }
 }
 
 function unwrap<T>(res: any): T {
   if (res.error) {
-    const value = res.error.value as { message?: string } | undefined;
-    throw new ApiError(res.error.status, value?.message ?? 'Request failed');
+    const value = res.error.value as
+      | { message?: string; errors?: Record<string, string> }
+      | undefined;
+    throw new ApiError(
+      res.error.status,
+      value?.message ?? 'Request failed',
+      value?.errors,
+    );
   }
   if (res.data === null) {
     throw new ApiError(res.status ?? 500, 'No data');
