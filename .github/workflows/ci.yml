@@ -50,6 +50,13 @@ jobs:
           bun-version: 1.4.0
       - run: bun install
         working-directory: .
+      - name: Start dependency services (postgres + valkey)
+        run: docker compose up -d --wait postgres valkey
+        working-directory: .
+      - name: Migrate database
+        run: bun run db:migrate
+      - name: Seed database
+        run: bun run db:seed
       - run: bunx turbo run check-types build --filter=be
 
   web:
