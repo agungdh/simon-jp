@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      be: ${{ steps.filter.outputs.be }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            be:
+              - 'apps/be/**'
+              - 'package.json'
+              - 'bun.lock'
+              - 'turbo.json'
+              - 'Makefile'
+            web:
+              - 'apps/web/**'
+              - 'package.json'
+              - 'bun.lock'
+              - 'turbo.json'
+              - 'Makefile'
+
+  be:
+    needs: detect
+    if: needs.detect.outputs.be == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/be
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+      - run: bun install
+        working-directory: .
+      - run: bunx turbo run check-types build --filter=be
+
+  web:
+    needs: detect
+    if: needs.detect.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+      - run: bun install
+        working-directory: .
+      - run: bunx turbo run lint check-types build --filter=web
