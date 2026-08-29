@@ -22,6 +22,7 @@ async function seed() {
       nama: "Admin",
       tipe: "admin",
       status: "aktif",
+      kategoriKebutuhanJamPelatihan: "admin",
     } as any);
     console.log(`seeded admin user: nip=${nip}`);
   } else {

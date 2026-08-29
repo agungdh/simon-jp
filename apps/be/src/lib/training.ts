@@ -5,6 +5,11 @@ import { HttpError } from "../plugins/error";
 import { resolveAuth, authGuard } from "../plugins/auth";
 import { users } from "../modules/user/user.entity";
 import { jenisPelatihans } from "../modules/jenis-pelatihan/jenis-pelatihan.entity";
+import {
+  getPresignedPutUrl,
+  getPresignedGetUrl,
+  deleteObject,
+} from "../lib/s3";
 
 export interface TrainingColumnConfig {
   materi: string;
@@ -68,6 +73,7 @@ export function buildTrainingModule(config: TrainingConfig) {
   updateShape[c.jam] = t.Optional(t.Number());
   if (c.jenisPelatihan)
     updateShape.jenisPelatihanUuid = t.Optional(t.String());
+  if (c.filename) updateShape.filename = t.Optional(t.String());
 
   const responseSchema = t.Object(responseShape);
   const createSchema = t.Object(createShape);
@@ -275,8 +281,10 @@ export function buildTrainingModule(config: TrainingConfig) {
     },
 
     async remove(uuid: string, userId: number, isAdmin: boolean) {
+      const sel: any = { id: table.id, userId: (table as any).userId };
+      if (c.filename) sel.filename = (table as any).filename;
       const [existing] = await db
-        .select({ id: table.id, userId: (table as any).userId })
+        .select(sel)
         .from(table)
         .where(and(eq(table.uuid, uuid), isNull((table as any).deletedAt)))
         .limit(1);
@@ -284,14 +292,47 @@ export function buildTrainingModule(config: TrainingConfig) {
       if (adminOnlyWrite && !isAdmin) throw new HttpError(403, "Forbidden");
       if (owner && !isAdmin && existing.userId !== userId)
         throw new HttpError(403, "Forbidden");
+      if (c.filename && existing.filename) {
+        try {
+          await deleteObject(`${name}/${uuid}`);
+        } catch {
+          /* ignore cleanup failure */
+        }
+      }
       await db
         .update(table)
         .set({ deletedAt: new Date() })
         .where(eq(table.uuid, uuid));
     },
+
+    async presignFile(
+      uuid: string,
+      userId: number,
+      isAdmin: boolean,
+      body: { fileName: string; contentType?: string },
+    ) {
+      await this.getByUuid(uuid, userId, isAdmin);
+      const key = `${name}/${uuid}`;
+      const url = await getPresignedPutUrl(key, body.contentType);
+      return { url, key, method: "PUT" };
+    },
+
+    async getFileUrl(uuid: string, userId: number, isAdmin: boolean) {
+      const [row] = await db
+        .select({ userId: (table as any).userId, filename: (table as any).filename })
+        .from(table)
+        .where(and(eq(table.uuid, uuid), isNull((table as any).deletedAt)))
+        .limit(1);
+      if (!row) throw new HttpError(404, "Not found");
+      if (owner && !isAdmin && row.userId !== userId)
+        throw new HttpError(403, "Forbidden");
+      if (!row.filename) throw new HttpError(404, "File tidak tersedia");
+      const key = `${name}/${uuid}`;
+      return { downloadUrl: await getPresignedGetUrl(key) };
+    },
   };
 
-  const controller = new Elysia()
+  let controller: any = new Elysia()
     .derive(resolveAuth)
     .onBeforeHandle(authGuard)
     .get(
@@ -346,6 +387,37 @@ export function buildTrainingModule(config: TrainingConfig) {
       repository.remove(params.uuid, auth!.id, auth!.tipe === "admin");
       return { message: "Deleted" };
     });
+
+  if (c.filename) {
+    controller = controller
+      .post(
+        `/${name}/:uuid/presign`,
+        ({ params, body, auth }: any): any =>
+          repository.presignFile(
+            params.uuid,
+            auth!.id,
+            auth!.tipe === "admin",
+            body,
+          ),
+        {
+          body: t.Object({
+            fileName: t.String(),
+            contentType: t.Optional(t.String()),
+          }),
+          response: t.Object({
+            url: t.String(),
+            key: t.String(),
+            method: t.String(),
+          }),
+        },
+      )
+      .get(
+        `/${name}/:uuid/file`,
+        ({ params, auth }: any): any =>
+          repository.getFileUrl(params.uuid, auth!.id, auth!.tipe === "admin"),
+        { response: t.Object({ downloadUrl: t.String() }) },
+      );
+  }
 
   return { repository, controller };
 }

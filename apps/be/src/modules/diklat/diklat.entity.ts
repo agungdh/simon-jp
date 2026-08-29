@@ -58,5 +58,6 @@ export const diklatConfig: TrainingConfig = {
     sampai: "sampaiTanggalPelaksanaan",
     nomorSurat: "nomorSurat",
     jenisPelatihan: "jenisPelatihanId",
+    filename: true,
   },
 };

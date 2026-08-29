@@ -16,6 +16,7 @@ import { mentoringRoutes } from "./modules/mentoring";
 import { coachingRoutes } from "./modules/coaching";
 import { workshopRoutes } from "./modules/workshop";
 import { materiPpmRoutes } from "./modules/materi-ppm";
+import { dashboardRoutes } from "./modules/dashboard";
 
 export const app = new Elysia()
   .use(
@@ -46,6 +47,7 @@ export const app = new Elysia()
   .use(mentoringRoutes)
   .use(coachingRoutes)
   .use(workshopRoutes)
-  .use(materiPpmRoutes);
+  .use(materiPpmRoutes)
+  .use(dashboardRoutes);
 
 export type App = typeof app;
