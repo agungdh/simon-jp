@@ -30,17 +30,22 @@ export default function App() {
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
-    setFieldErrors({});
+    if (submitting) return;
     setSubmitting(true);
     try {
       const u = await login(nip, password);
+      // Only update the UI after the request resolves, so nothing flickers
+      // mid-flight. Clear any previous errors now that we succeeded.
+      setError(null);
+      setFieldErrors({});
       setUser(u);
       setPassword('');
     } catch (err) {
       if (err instanceof ApiError && err.errors) {
+        setError(null);
         setFieldErrors(err.errors);
       } else {
+        setFieldErrors({});
         setError(err instanceof Error ? err.message : 'Login failed');
       }
     } finally {
@@ -114,7 +119,7 @@ export default function App() {
                     });
                   }}
                   error={Boolean(fieldErrors.nip)}
-                  helperText={fieldErrors.nip}
+                  helperText={fieldErrors.nip ? fieldErrors.nip : ' '}
                   fullWidth
                   required
                   autoFocus
@@ -132,7 +137,7 @@ export default function App() {
                     });
                   }}
                   error={Boolean(fieldErrors.password)}
-                  helperText={fieldErrors.password}
+                  helperText={fieldErrors.password ? fieldErrors.password : ' '}
                   fullWidth
                   required
                 />
