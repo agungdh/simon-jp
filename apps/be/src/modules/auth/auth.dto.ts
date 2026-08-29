@@ -1,8 +1,8 @@
 import { t } from "elysia";
 
 export const loginRequestSchema = t.Object({
-  nip: t.String(),
-  password: t.String(),
+  nip: t.String({ minLength: 1 }),
+  password: t.String({ minLength: 1 }),
 });
 
 export const loginResponseSchema = t.Object({

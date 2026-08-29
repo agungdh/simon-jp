@@ -187,6 +187,14 @@ db.select({ uuid: users.uuid, name: users.name }).from(users);
   Spring `@ControllerAdvice` / `@ExceptionHandler`). Do NOT wrap it in a
   `.use()` plugin — Elysia fails to JSON-serialize `onError` return values that
   come from a nested plugin, sending plain text instead.
+- **Validation errors** (Elysia `ValidationError`, status `422`) are normalized
+  by `errorHandler` into a flat per-field shape the frontend can render directly:
+  ```json
+  { "message": "Validation failed", "errors": { "nip": "NIP wajib diisi", "password": "Password wajib diisi" } }
+  ```
+  Request schemas enforce constraints via Elysia `t.*` (e.g.
+  `t.String({ minLength: 1 })`). The frontend only displays the messages — all
+  validation lives on the BE.
 
 ## API docs (Swagger)
 
