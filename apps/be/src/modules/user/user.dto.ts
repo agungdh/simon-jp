@@ -6,6 +6,7 @@ export const userResponseSchema = t.Object({
   nama: t.String(),
   createdAt: t.Date(),
   updatedAt: t.Date(),
+  deletedAt: t.Date().nullable(),
 });
 
 export const userListResponseSchema = t.Array(userResponseSchema);

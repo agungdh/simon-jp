@@ -26,8 +26,11 @@ Rules:
 - **Services contain business logic** and depend on repositories, not on
   `db`. A service may throw `HttpError` (from `src/plugins/error.ts`) to signal
   HTTP errors — do NOT set `set.status` inside services.
-- **Repositories own all Drizzle queries** (select/insert/update/delete) and
-  return only public columns (`uuid`, never `id`).
+- **Repositories own all Drizzle queries** (select/insert/update/delete), filter
+  out soft-deleted rows by default (`deleted_at IS NULL`), and return only
+  public columns: `uuid` (never `id`), and for every foreign key the parent's
+  `uuid` exposed as `<entity>Uuid` (resolved via JOIN), never `id` / `<x>_id` /
+  `<x>_by`.
 - Cross-feature data access reuses the other module's repository (e.g.
   `auth` calls `userRepository.findByNip`), never another module's controller.
 - `src/db/` holds shared infra only: `columns.ts` (id/uuid/fkId helpers),
@@ -46,22 +49,59 @@ Rules:
 3. Mount it in `src/app.ts`: `import { <feature>Routes } from "./modules/<feature>"`
    then `.use(<feature>Routes)`.
 
-## Database conventions (Drizzle ORM + Postgres)
+## Database conventions (Drizzle ORM + Postgres, Postgres-only)
 
-Every table MUST follow the dual-identifier pattern defined in
+Every table MUST follow the dual-identifier + audit pattern defined in
 `apps/be/src/db/columns.ts`. Use the shared helpers — do not hand-declare
-`serial`/`uuid` columns inline.
+`serial`/`uuid`/`timestamp` columns inline. The schema targets Postgres only, so
+optimize for it: hash indexes for `uuid` equality, `timestamptz` everywhere, and
+partial indexes for soft-delete-safe uniqueness.
 
 ### Identifiers
 
-- `id` — `serial` primary key. **Internal only.** Used for joins, FKs, and
-  storage. NEVER exposed to the client (API responses, DTOs, types).
+- `id` — `serial` primary key. **Internal only.** Used for storage and FK
+  targets. NEVER exposed to the client (API responses, DTOs, types).
 - `uuid` — `uuid` column, `default gen_random_uuid()`, `notNull`, with a
-  **hash index** (`index(...).using("hash", table.uuid)`). NOT unique. This is
-  the public identifier used in DTOs and APIs. Uniqueness is enforced by the
-  app layer / default, not a DB unique constraint.
+  **hash index** (`index(...).using("hash", table.uuid)`). NOT unique (uuid v4
+  is unique enough). This is the public identifier used in DTOs and APIs.
+- `<entity>_id` — foreign key column (integer) referencing the parent's `id`
+  (the serial PK). **Internal only**, never exposed. In the API it is surfaced
+  as `<Entity>Uuid` (the parent's `uuid`), resolved via JOIN in the repository.
 
-Rule of thumb: the client only ever sees `uuid`. `id` stays server-side.
+Rule of thumb: the client only ever sees `uuid` and `*Uuid`. `id` / `*_id` /
+`*_by` stay server-side.
+
+### Audit columns (required on every table)
+
+Every table MUST carry these six columns (use the shared helpers from
+`columns.ts`):
+
+- `createdAt` — `timestamptz`, `default now()`, notNull.
+- `createdBy` — `integer` referencing `users.id`, nullable (system/seed rows
+  have no creator). **Not indexed.**
+- `updatedAt` — `timestamptz`, `default now()`, notNull.
+- `updatedBy` — `integer` referencing `users.id`, nullable. **Not indexed.**
+- `deletedAt` — `timestamptz`, nullable. `NULL` = active, non-`NULL` =
+  soft-deleted.
+- `deletedBy` — `integer` referencing `users.id`, nullable. **Not indexed.**
+
+The `*_by` columns conceptually reference `users.id`. For **cross-table** FKs
+(e.g. `post.userId → users.id`) use `.references(() => parent.id)`. For the
+audit `*_by` columns on the `users` table itself, omit `.references` — a
+self-reference makes TS infer `users` as circular/`any`. Postgres does NOT
+auto-create an index on the child side, so "no index" still holds. They are
+never exposed in DTOs.
+
+### Soft delete
+
+- A row is "deleted" when `deleted_at IS NOT NULL`.
+- **Repositories MUST filter soft-deleted rows by default**: append
+  `where(isNull(table.deletedAt))` to every `select`/`update`/`delete` unless the
+  query explicitly needs tombstones (e.g. an admin restore flow).
+- Inserts set `created_at`/`created_by` and `updated_at`/`updated_by` (from the
+  authenticated user's `users.id`); `deleted_at`/`deleted_by` stay `NULL`.
+  Updates bump `updated_at`/`updated_by`. Deletes set `deleted_at`/`deleted_by`
+  — never a hard `delete`.
 
 ### How to define a table
 
@@ -71,15 +111,26 @@ schema (do NOT put raw `pgTable` definitions directly in `db/schema.ts`):
 
 ```ts
 // src/modules/user/user.entity.ts
-import { index, pgTable, text } from "drizzle-orm/pg-core";
-import { id, uuid } from "../../db/columns";
+import { index, pgTable, text, uniqueIndex, sql } from "drizzle-orm/pg-core";
+import {
+  createdAt, createdBy, deletedAt, deletedBy,
+  id, updatedAt, updatedBy, uuid,
+} from "../../db/columns";
 
 export const users = pgTable(
   "users",
   {
     id: id(),
     uuid: uuid(),
-    name: text("name").notNull(),
+    nip: text("nip").notNull(),
+    password: text("password").notNull(),
+    nama: text("nama").notNull(),
+    createdAt: createdAt(),
+    createdBy: createdBy(),
+    updatedAt: updatedAt(),
+    updatedBy: updatedBy(),
+    deletedAt: deletedAt(),
+    deletedBy: deletedBy(),
   },
   (table) => ({
     uuidIdx: index("users_uuid_idx").using("hash", table.uuid),
@@ -113,38 +164,89 @@ export const posts = pgTable("posts", {
   uuid: uuid(),
   userId: fkId("user_id").references(() => users.id),
   title: text("title").notNull(),
+  createdAt: createdAt(),
+  createdBy: createdBy().references(() => users.id),
+  updatedAt: updatedAt(),
+  updatedBy: updatedBy().references(() => users.id),
+  deletedAt: deletedAt(),
+  deletedBy: deletedBy().references(() => users.id),
 });
 ```
 
 ### DTOs / API responses
 
 - Request/response schemas live in `src/modules/<feature>/<feature>.dto.ts`,
-  defined with Elysia's `t.*` builders plus a `typeof x.static` type alias:
+  defined with Elysia's `t.*` builders plus a `typeof x.static` type alias.
+  Response bodies are **standard JSON in camelCase** (e.g. `createdAt`,
+  `userUuid`).
   ```ts
   import { t } from "elysia";
   export const userResponseSchema = t.Object({
     uuid: t.String(),
     nip: t.String(),
     nama: t.String(),
+    createdAt: t.Date(),
   });
   export type UserResponse = typeof userResponseSchema.static;
   ```
 - Controllers pass these to the route's `body`/`response` options so endpoints
   are validated and auto-documented by Swagger.
 - Select and return `uuid` (and other fields) explicitly. Never return the raw
-  `db.select().from(table)` row, since that leaks `id`. Repositories do this
+  `db.select().from(table)` row — it leaks `id`. Repositories do this
   projection so services/controllers never see `id`.
-- Prefer explicit column projection (done in the repository):
+- For a foreign key, expose the parent's `uuid` as `<Entity>Uuid`, resolved by
+  JOIN in the repository — never the raw `<entity>_id`:
+  ```ts
+  db.select({
+    uuid: posts.uuid,
+    title: posts.title,
+    userUuid: users.uuid, // surfaced as userUuid in the DTO, NOT userId
+  })
+  .from(posts)
+  .innerJoin(users, eq(posts.userId, users.id))
+  .where(isNull(posts.deletedAt));
+  ```
+  ```ts
+  // DTO
+  export const postResponseSchema = t.Object({
+    uuid: t.String(),
+    title: t.String(),
+    userUuid: t.String(),
+  });
+  ```
+
+### Unique constraints → partial indexes (soft-delete-safe)
+
+Any column that must be unique (e.g. `nip`, `email`) MUST be enforced with a
+**partial unique index** that ignores soft-deleted rows, so a deleted row never
+blocks re-creating the same value:
 
 ```ts
-db.select({ uuid: users.uuid, name: users.name }).from(users);
+import { uniqueIndex, sql } from "drizzle-orm/pg-core";
+
+uniqueIndex("users_nip_active_uniq")
+  .on(table.nip)
+  .where(sql`${table.deletedAt} IS NULL`);
 ```
+
+### Postgres optimization notes
+
+- All timestamps use `timestamptz` (timezone-aware), never bare `timestamp`.
+- `uuid` gets a **hash index** — equality lookups (`WHERE uuid = $1`) are the
+  only access pattern, and hash indexes are smaller/faster for equality than a
+  B-tree.
+- FKs are narrow `integer` → `id`, keeping joins cheap; child-side `*_by`
+  columns are intentionally unindexed.
+- Unique constraints are partial on `deleted_at IS NULL`.
 
 ### Migrations
 
 - After editing the schema run `bun run db:generate` then `bun run db:migrate`
   (from `apps/be`). Never hand-edit generated SQL unless adding a hash index
   that drizzle-kit cannot express — prefer `.using("hash", ...)` in the schema.
+- For a clean reset (early-stage schema churn): delete `apps/be/drizzle/*.sql`
+  and `apps/be/drizzle/meta/`, run `bun run db:generate` to emit a fresh `0000`,
+  then `make db-reset` (wipes the Postgres volume) + `make db-seed`.
 
 ## Auth conventions
 

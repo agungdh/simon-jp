@@ -1,5 +1,5 @@
 import { db } from "../../db";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { users } from "./user.entity";
 
 export const userRepository = {
@@ -11,8 +11,10 @@ export const userRepository = {
         nama: users.nama,
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
+        deletedAt: users.deletedAt,
       })
-      .from(users);
+      .from(users)
+      .where(isNull(users.deletedAt));
   },
 
   async findByUuid(uuid: string) {
@@ -23,11 +25,15 @@ export const userRepository = {
         nama: users.nama,
       })
       .from(users)
-      .where(eq(users.uuid, uuid))
+      .where(and(eq(users.uuid, uuid), isNull(users.deletedAt)))
       .limit(1);
   },
 
   async findByNip(nip: string) {
-    return db.select().from(users).where(eq(users.nip, nip)).limit(1);
+    return db
+      .select()
+      .from(users)
+      .where(and(eq(users.nip, nip), isNull(users.deletedAt)))
+      .limit(1);
   },
 };
