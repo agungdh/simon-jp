@@ -21,10 +21,10 @@ db-up:
 	$(COMPOSE) up -d postgres
 
 db-down:
-	$(COMPOSE) down
+	$(COMPOSE) down postgres
 
 db-reset:
-	$(COMPOSE) down -v
+	$(COMPOSE) down -v postgres
 	$(COMPOSE) up -d postgres
 	@echo "waiting for postgres to be healthy..."
 	@for i in $$(seq 1 30); do \
