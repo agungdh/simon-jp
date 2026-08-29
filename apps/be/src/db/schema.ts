@@ -1,1 +1,14 @@
 export { users } from "../modules/user/user.entity";
+export { bidangs } from "../modules/bidang/bidang.entity";
+export { pangkatGolongans } from "../modules/pangkat-golongan/pangkat-golongan.entity";
+export { jenisPelatihans } from "../modules/jenis-pelatihan/jenis-pelatihan.entity";
+export { diklats } from "../modules/diklat/diklat.entity";
+export { ppms } from "../modules/ppm/ppm.entity";
+export { seminars } from "../modules/seminar/seminar.entity";
+export { webinars } from "../modules/webinar/webinar.entity";
+export { lcs } from "../modules/lc/lc.entity";
+export { belajarMandiris } from "../modules/belajar-mandiri/belajar-mandiri.entity";
+export { mentorings } from "../modules/mentoring/mentoring.entity";
+export { coachings } from "../modules/coaching/coaching.entity";
+export { workshops } from "../modules/workshop/workshop.entity";
+export { materiPpms } from "../modules/materi-ppm/materi-ppm.entity";

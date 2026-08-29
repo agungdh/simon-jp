@@ -6,9 +6,11 @@ const PREFIX = "session:";
 const TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
 export interface SessionData {
+  id: number;
   uuid: string;
   nip: string;
   nama: string;
+  tipe: "admin" | "pegawai";
 }
 
 export async function createSession(data: SessionData): Promise<string> {

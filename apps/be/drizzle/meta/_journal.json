@@ -8,6 +8,20 @@
       "when": 1787989060445,
       "tag": "0000_remarkable_reptil",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788011292503,
+      "tag": "0001_mature_norman_osborn",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788011383203,
+      "tag": "0002_orange_masked_marvel",
+      "breakpoints": true
     }
   ]
 }

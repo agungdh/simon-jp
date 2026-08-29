@@ -11,6 +11,7 @@ export const loginResponseSchema = t.Object({
     uuid: t.String(),
     nip: t.String(),
     nama: t.String(),
+    tipe: t.Union([t.Literal("pegawai"), t.Literal("admin")]),
   }),
 });
 
